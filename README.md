@@ -1,71 +1,105 @@
+<div align="center">
+
 # Crop Disease Concept Network
 
-Transfer learning with a **Concept Bottleneck Network (CBN)** for the [Crop Disease Detection Dataset](https://www.kaggle.com/datasets/snikhilrao/crop-disease-detection-dataset).
+### Concept Bottleneck transfer learning for leaf-disease classification
+
+*ResNet18 → 6 visual symptom concepts → disease class. Interpretable middle layer, measurable against a plain ResNet18 baseline.*
+
+![Status](https://img.shields.io/badge/status-measured%20subset-blue)
+![Stack](https://img.shields.io/badge/stack-PyTorch%20·%20ResNet18%20·%20Gradio-cyan)
+
+</div>
+
+---
+
+## Problem
+
+Crop-disease classifiers that only emit a class label are hard to trust in the field. A **Concept Bottleneck Network (CBN)** forces the model through human-interpretable symptom concepts (rust patches, brown spots, yellowing, …) before the disease head — so an agronomist can see *why* the model picked a class.
 
 ## Architecture
 
-```
-Leaf Image → Pretrained ResNet18 → Concept Layer (6 symptoms) → 14-class Disease Head
+```mermaid
+flowchart LR
+  IMG[Leaf image 224×224] --> BB[ImageNet ResNet18 backbone]
+  BB --> CON[Concept layer<br/>6 sigmoid concepts]
+  CON --> HEAD[Linear disease head]
+  HEAD --> Y[Disease class]
+  CON -.->|interpretable activations| UI[Gradio demo]
 ```
 
-**Concepts:** rust patches, brown spots, yellowing, gray mold, edge burn, healthy green tissue.
+**Design decisions / trade-offs**
 
-## Quick Start
+| Decision | Why | Trade-off |
+|---|---|---|
+| Concept bottleneck (not end-to-end logits only) | Inspectable symptom scores; assignment requirement | Harder to optimize; early-epoch accuracy lags a plain ResNet18 |
+| Weak concept supervision from class name heuristics | No pixel-level concept labels in PlantVillage | Noisy concept targets |
+| Images **not** in git | Repo was ~1 GB / 42.7k files; clone/CI was unusable | Must run `scripts/download_data.py` or demo data |
+| Subset CPU eval checked in | Honest, reproducible numbers without a GPU | Not a full-dataset claim — labelled as such |
+
+---
+
+## Results (measured)
+
+**Protocol (this PR):** PlantVillage `Train/` → 10 classes × max 30 images/class → 225 train / 75 val · **3 epochs · CPU · batch 8**.  
+Reproduce: `python eval/train_compare.py --data-dir data/raw --max-per-class 30 --max-classes 10 --epochs 3 --out outputs/subset_cpu`
+
+| Model | Val accuracy | Macro-F1 |
+|---|---|---|
+| **Plain ResNet18 baseline** | **0.933** | **0.930** |
+| Concept Bottleneck (ResNet18 → 6 concepts) | 0.240 | 0.126 |
+
+Confusion matrices: [`eval/published/confusion_baseline.png`](eval/published/confusion_baseline.png) · [`eval/published/confusion_cbn.png`](eval/published/confusion_cbn.png).
+
+**How to read this.** On a 3-epoch CPU subset the plain ResNet18 is clearly ahead — expected, because the CBN is optimizing an extra concept loss with weak labels. The CBN’s value is **interpretability** (concept activations in the Gradio app), not beating the baseline in three epochs. Full-dataset GPU runs (no `--max-per-class` cap, ≥15 epochs) are **TBD** — re-run and replace `eval/published/summary.json`.
+
+---
+
+## Data (images are gitignored)
+
+This branch **stops tracking** the previously committed `Plant Village Dataset/` (~42.7k images). History is unchanged (no rewrite); new clones will not carry the blob.
 
 ```bash
+# Option A — PlantVillage already on disk / re-downloaded
+python scripts/download_data.py --from-plantvillage "Plant Village Dataset/Train" --out data/raw
+
+# Option B — Kaggle 14-class crop disease set
+python scripts/download_data.py --kaggle snikhilrao/crop-disease-detection-dataset --out data/raw
+
+# Option C — synthetic smoke data (CI)
+python scripts/create_demo_data.py --output-dir data/demo --images-per-class 8
+```
+
+---
+
+## Quickstart
+
+```bash
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Optional: synthetic demo data (no Kaggle account needed)
-python scripts/create_demo_data.py
+# train + compare (subset)
+python eval/train_compare.py --data-dir data/raw --max-per-class 30 --max-classes 10 --epochs 3 --out outputs/subset_cpu
 
-# Train (replace data path after downloading from Kaggle)
-python train.py --data-dir data/demo --epochs 5 --variant all
+# Gradio demo (needs outputs/subset_cpu/best_cbn.pt)
+python app.py
 
-# Predict
-python predict.py --image data/demo/Potato___Early_blight/Potato___Early_blight_000.jpg
+# tests
+pytest -q tests
 ```
 
-### Kaggle Dataset
+### CI
 
-1. Download from [Kaggle](https://www.kaggle.com/datasets/snikhilrao/crop-disease-detection-dataset)
-2. Extract so class folders sit under `data/raw/`:
-   ```
-   data/raw/Corn___Common_Rust/
-   data/raw/Potato___Early_blight/
-   ...
-   ```
-3. Train:
-   ```bash
-   python train.py --data-dir data/raw --variant A --epochs 10
-   ```
+Template: [`ci/github-actions.yml`](ci/github-actions.yml) — copy to `.github/workflows/ci.yml` (token lacked `workflow` scope).
 
-### Assignment Variants
+---
 
-| Variant | Flag | Description |
-|---------|------|-------------|
-| A | `--variant A` | First 50% of images |
-| B | `--variant B` | Second 50% of images |
-| C | `--variant C --class-a Potato___Early_blight --class-b Potato___Late_blight` | Two-class head-to-head |
+## Tech stack
 
-## Slides
+PyTorch · torchvision ResNet18 · scikit-learn metrics · Gradio · pytest
 
-Full paragraph-wise slide content for Google Slides is in **[SLIDES.md](SLIDES.md)**.
-
-## Project Structure
-
-```
-crop-disease-concept-net/
-├── src/
-│   ├── model.py          # ConceptBottleneckNet
-│   ├── dataset.py        # Data loading + variant splits
-│   └── constants.py      # 14 classes, 6 concepts
-├── train.py
-├── predict.py
-├── scripts/create_demo_data.py
-├── SLIDES.md             # Copy-paste slide paragraphs
-└── requirements.txt
-```
+---
 
 ## License
 
-MIT — dataset subject to Kaggle / original author terms.
+MIT — dataset subject to Kaggle / PlantVillage terms.

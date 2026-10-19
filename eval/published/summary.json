@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "device": "cpu",
+    "data_dir": "data/raw",
+    "n_classes": 10,
+    "class_names": [
+      "Apple - Apple Scab",
+      "Apple - Black Rot",
+      "Apple - Cedar Apple Rust",
+      "Apple - Healthy",
+      "Bell Pepper - Bacterial Spot",
+      "Bell Pepper - Healthy",
+      "Cherry - Healthy",
+      "Cherry - Powdery Mildew",
+      "Corn (Maize) - Cercospora Leaf Spot",
+      "Corn (Maize) - Common Rust"
+    ],
+    "n_train": 225,
+    "n_val": 75,
+    "max_per_class": 30,
+    "epochs": 3,
+    "note": "SUBSET CPU run \u2014 not a full-dataset result. Re-run without --max-per-class cap on a GPU for production numbers."
+  },
+  "concept_bottleneck": {
+    "accuracy": 0.24,
+    "macro_f1": 0.12648741048741047
+  },
+  "resnet18_baseline": {
+    "accuracy": 0.9333333333333333,
+    "macro_f1": 0.9300298050762447
+  }
+}
