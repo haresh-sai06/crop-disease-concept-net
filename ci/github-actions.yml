@@ -1,0 +1,22 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (CPU torch)
+        run: |
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt pytest
+      - run: pytest -q tests
+      - name: Synthetic demo train smoke (1 epoch, tiny)
+        run: |
+          python scripts/create_demo_data.py --output-dir data/demo --images-per-class 4
+          python train.py --data-dir data/demo --epochs 1 --batch-size 4 --output-dir outputs/ci-smoke

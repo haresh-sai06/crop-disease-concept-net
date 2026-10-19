@@ -9,7 +9,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from .constants import CLASS_NAMES, CLASS_TO_CONCEPTS, NUM_CONCEPTS
+from .constants import CLASS_NAMES, NUM_CONCEPTS
+from .concepts import concepts_for_class
 
 
 def default_transforms(image_size: int = 224, train: bool = True):
@@ -57,7 +58,7 @@ class CropDiseaseDataset(Dataset):
                 continue
 
             concept_target = torch.tensor(
-                CLASS_TO_CONCEPTS.get(class_name, [0] * NUM_CONCEPTS),
+                concepts_for_class(class_name),
                 dtype=torch.float32,
             )
             images = sorted(
